@@ -24,6 +24,37 @@ system_prompt_v1 = '''
 ### 당신은 고객 지원 전문 분류 모델입니다.
 ### 당신의 목적은 주어진 고객 문의사항을 분석해 json 파일만 출력하는 것입니다.
 ### 당신이 출력해야할 json 파일의 구조는 다음과 같습니다. {{"intent": , "urgency": , "needs_clarification": , "route_to": }}
+
+### "intent"
+- "order_change": 주문 수정, 취소, 주소 변경, 옵션 변경
+- "shipping_issue": 출고, 배송 지연, 배송 누락, 배송 완료 오표시
+- "payment_issue": 결제 실패, 중복 결제, 청구 이상
+- "refund_exchange": 반품, 환불, 교환, 불량 접수
+- "other": 위 4가지 intent로 단정하기 어렵거나 맥락이 부족한 경우
+
+### "urgency"
+- "low": 일반 문의, 즉각적인 대응이 필요한 장애가 아닌 경우
+- "medium": 처리가 필요하지만 긴급하지 않은 장애/금전 리스크
+- "high": 결제 이상, 분실/오배송, 고객 불만 고조, 수동 확인이 시급함
+
+### "needs_clarification"
+- True: 현재 텍스트만으로 처리 방향을 단정하기 어려움
+- False : 현재 정보만으로 분류 가능
+
+### "route_to"
+- "order_ops": 주문/수정 담당
+- "shipping_ops": 배송 담당
+- "billing_ops": 결제/청구 담당
+- "returns_ops": 환불/교환 담당
+- "human_support": 맥락 부족, 다부서 이슈, 에스컬레이션 필요
+
+### 고객문의사항:
+'''
+
+system_prompt_v2 = '''
+### 당신은 고객 지원 전문 분류 모델입니다.
+### 당신의 목적은 주어진 고객 문의사항을 분석해 json 파일만 출력하는 것입니다.
+### 당신이 출력해야할 json 파일의 구조는 다음과 같습니다. {{"intent": , "urgency": , "needs_clarification": , "route_to": }}
 ### 아래는 각각의 구성요소에 대한 지침입니다.
 
 ### "intent"
@@ -52,11 +83,9 @@ system_prompt_v1 = '''
 ### 고객문의사항:
 '''
 
-system_prompt_v2 = '''
 
-'''
 
-system_prompt = system_prompt_v1
+system_prompt = system_prompt_v2
 
 def load_data(file_path):
     data = []
@@ -68,7 +97,7 @@ def load_data(file_path):
 
 def ask_llm(customer_message):
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="models/gemini-2.5-flash",
         config={
             'system_instruction':system_prompt,
             'temperature':0,
@@ -84,7 +113,6 @@ def main():
     parsing_success_count=0
     validation_count=0
     exact_match_count=0
-    results = []
     
     # Load data
     data = load_data('dataset.jsonl')
@@ -92,16 +120,11 @@ def main():
     total = len(data)
     
     for i, item in enumerate(data):
-        if i<8:
-            continue
 
         id = item['id']
         customer_message = item["customer_message"]
         expected_output = item["expected_output"]
 
-        # print(id)
-        # print(customer_message)
-        # print(expected_output)
 
         try:
             # llm 호출
@@ -146,9 +169,9 @@ def main():
             print(f"[{id}] 에러: {e}")
 
         # 최종 결과 저장 (json.dump 사용)
-        with open('output.jsonl', "a", encoding="utf-8") as f:
+        with open('prompt_v2_output.jsonl', "a", encoding="utf-8") as f:
             f.write(json.dumps(parsed_dict, ensure_ascii=False) + '\n')
-        time.sleep(20)
+        time.sleep(30)
     
         
 
