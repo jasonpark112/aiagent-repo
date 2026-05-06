@@ -14,6 +14,7 @@ from langchain_core.prompts import PromptTemplate
 from sentence_transformers import CrossEncoder
 
 from ragas import EvaluationDataset, evaluate
+from ragas.run_config import RunConfig
 from ragas.dataset_schema import SingleTurnSample
 from ragas.metrics import (
     ContextRecall,
@@ -29,10 +30,10 @@ load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 GOLDEN_DATASET_PATH = os.path.join(BASE_DIR, "golden_dataset_v2.jsonl")
-FAISS_INDEX_PATH = os.path.join(BASE_DIR, "faiss_index")
+FAISS_INDEX_PATH = os.path.join(BASE_DIR, "faiss_index_cleaned")
 MD_FILES = {
-    "2025": os.path.join(BASE_DIR, "../data/2025 알기 쉬운 의료급여제도.pdf_by_PaddleOCR-VL-1.5.md"),
-    "2026": os.path.join(BASE_DIR, "../data/2026 알기 쉬운 의료급여제도.pdf_by_PaddleOCR-VL-1.5.md"),
+    "2025": os.path.join(BASE_DIR, "../data/2025_cleaned.md"),
+    "2026": os.path.join(BASE_DIR, "../data/2026_cleaned.md"),
 }
 
 VECTOR_K = 5 
@@ -202,15 +203,18 @@ def main():
     basic_dataset = EvaluationDataset(samples=basic_samples)
     advanced_dataset = EvaluationDataset(samples=advanced_samples)
 
+    # Rate limit 대응: Claude Sonnet 분당 50 RPM 제한에 맞게 동시 요청 수 제한
+    run_config = RunConfig(max_workers=2, timeout=120, max_retries=3)
+
     # Ragas 평가 실행
     print("\nBasic RAG 평가 중...")
-    basic_result = evaluate(dataset=basic_dataset, metrics=metrics, llm=evaluator_llm, embeddings=evaluator_embeddings)
+    basic_result = evaluate(dataset=basic_dataset, metrics=metrics, llm=evaluator_llm, embeddings=evaluator_embeddings, run_config=run_config)
     basic_df = basic_result.to_pandas()
     basic_df.to_csv(os.path.join(BASE_DIR, "basic_ragas_scores.csv"), index=False, encoding="utf-8-sig")
     print("basic_ragas_scores.csv 저장 완료")
 
     print("\nAdvanced RAG 평가 중...")
-    advanced_result = evaluate(dataset=advanced_dataset, metrics=metrics, llm=evaluator_llm, embeddings=evaluator_embeddings)
+    advanced_result = evaluate(dataset=advanced_dataset, metrics=metrics, llm=evaluator_llm, embeddings=evaluator_embeddings, run_config=run_config)
     advanced_df = advanced_result.to_pandas()
     advanced_df.to_csv(os.path.join(BASE_DIR, "advanced_ragas_scores.csv"), index=False, encoding="utf-8-sig")
     print("advanced_ragas_scores.csv 저장 완료")
